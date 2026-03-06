@@ -35,7 +35,7 @@ class GeminiClient:
             return
         
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     def _build_fallback_analysis(self, videos: List[Dict], reason: str = "AI 분석 불가") -> Dict:
         """Gemini 사용 불가 시 YouTube 메타데이터 기반 폴백 분석"""
