@@ -55,6 +55,13 @@ class TrendService:
             sum(video.get("view_count", 0) for video in top_videos) / max(len(top_videos), 1)
         )
         return average_views, 0
+
+    def _calculate_growth_rate(self, previous_view_count: int, current_view_count: int) -> float:
+        """이전 조회수 대비 성장률 계산"""
+        if previous_view_count <= 0:
+            return 0.0
+
+        return round(((current_view_count - previous_view_count) / previous_view_count) * 100, 1)
     
     async def collect_youtube_trends(
         self,
@@ -116,11 +123,13 @@ class TrendService:
                 
                 if existing_trend:
                     # 기존 트렌드 업데이트
+                    previous_view_count = int(existing_trend.view_count or 0)
                     existing_trend.topic = main_topics[0] if main_topics else existing_trend.topic
                     existing_trend.category = category_id or existing_trend.category or "general"
                     existing_trend.trend_score = analysis.get("viral_potential", 70)
                     existing_trend.view_count = keyword_view_count
                     existing_trend.video_count = keyword_video_count
+                    existing_trend.growth_rate = self._calculate_growth_rate(previous_view_count, keyword_view_count)
                     existing_trend.related_keywords = keywords[:10]
                     existing_trend.suggested_tags = [f"#{k}" for k in keywords[:5]]
                     existing_trend.ai_analysis = analysis

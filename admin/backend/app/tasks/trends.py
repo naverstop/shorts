@@ -167,12 +167,14 @@ async def _collect_tiktok_trends_async(region_code: str = "KR") -> dict:
 
             if keyword in existing_tiktok:
                 trend = existing_tiktok[keyword]
+                previous_view_count = int(trend.view_count or 0)
+                current_view_count = int(source_trend.view_count or 0)
                 trend.trend_score = tiktok_score
                 trend.topic = source_trend.topic
                 trend.category = source_trend.category or "general"
-                trend.view_count = source_trend.view_count or 0
+                trend.view_count = current_view_count
                 trend.video_count = source_trend.video_count or 0
-                trend.growth_rate = source_trend.growth_rate or 0.0
+                trend.growth_rate = round(((current_view_count - previous_view_count) / previous_view_count) * 100, 1) if previous_view_count > 0 else 0.0
                 trend.ai_analysis = {
                     "derived_from": "youtube",
                     "sync_type": "cross_platform_projection",

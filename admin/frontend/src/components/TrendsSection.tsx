@@ -100,6 +100,13 @@ export default function TrendsSection({ token, username }: Props) {
     return trend.source === filterSource
   })
 
+  const getSourceLabel = (source: string) => {
+    if (source === 'youtube') return '📺 YouTube'
+    if (source === 'youtube_shorts') return '🎬 YouTube Shorts'
+    if (source === 'tiktok') return '🎵 TikTok'
+    return source
+  }
+
   if (loading) {
     return (
       <div className="content-card">
@@ -237,10 +244,10 @@ export default function TrendsSection({ token, username }: Props) {
                   <th>키워드</th>
                   <th>주제</th>
                   <th>카테고리</th>
-                  <th>트렌드 점수</th>
-                  <th>연관 조회수</th>
-                  <th>연관 영상 수</th>
-                  <th>성장률</th>
+                  <th className="text-right">트렌드 점수</th>
+                  <th className="text-right">연관 조회수</th>
+                  <th className="text-right">연관 영상 수</th>
+                  <th className="text-right">성장률</th>
                   <th>언어</th>
                   <th>지역</th>
                   <th>수집 시각</th>
@@ -251,7 +258,7 @@ export default function TrendsSection({ token, username }: Props) {
                   <tr key={trend.id}>
                     <td>
                       <span className="status-badge online">
-                        {trend.source === 'youtube' ? '📺 YouTube' : '🎵 TikTok'}
+                        {getSourceLabel(trend.source)}
                       </span>
                     </td>
                     <td>
@@ -259,7 +266,7 @@ export default function TrendsSection({ token, username }: Props) {
                     </td>
                     <td>{trend.topic || '-'}</td>
                     <td>{trend.category || '-'}</td>
-                    <td>
+                    <td className="text-right">
                       <span style={{ 
                         fontWeight: 'bold',
                         color: trend.trend_score >= 80 ? '#10b981' : trend.trend_score >= 50 ? '#f59e0b' : '#6b7280'
@@ -267,9 +274,9 @@ export default function TrendsSection({ token, username }: Props) {
                         {trend.trend_score}
                       </span>
                     </td>
-                    <td>{trend.view_count.toLocaleString()}</td>
-                    <td>{trend.video_count.toLocaleString()}</td>
-                    <td>
+                    <td className="text-right">{trend.view_count.toLocaleString()}</td>
+                    <td className="text-right">{trend.video_count.toLocaleString()}</td>
+                    <td className="text-right">
                       <span style={{ color: trend.growth_rate > 0 ? '#10b981' : '#ef4444' }}>
                         {trend.growth_rate > 0 ? '+' : ''}{trend.growth_rate.toFixed(1)}%
                       </span>
