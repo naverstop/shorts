@@ -8,11 +8,19 @@ from typing import List, Optional
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas import TrendResponse, TrendCollectRequest, TrendSearchRequest
+from app.schemas import TrendResponse, TrendCollectRequest, TrendSearchRequest, TrendSourceResponse
 from app.dependencies import get_current_user
 from app.services.trend_service import TrendService
+from app.trend_sources import get_enabled_trend_source_codes, get_trend_sources
 
 router = APIRouter(prefix="/api/v1/trends", tags=["Trends"])
+
+
+@router.get("/sources", response_model=List[TrendSourceResponse])
+async def get_available_trend_sources(
+    current_user: User = Depends(get_current_user)
+):
+    return get_trend_sources()
 
 
 @router.post("/collect", response_model=List[TrendResponse])
@@ -28,19 +36,50 @@ async def collect_trends(
     """
     try:
         service = TrendService()
-        trends = await service.collect_youtube_trends(
-            db=db,
-            region_code=request.region_code,
-            category_id=request.category_id
-        )
-        
-        if not trends:
+        enabled_sources = set(get_enabled_trend_source_codes())
+        requested_sources = request.sources or list(enabled_sources)
+        invalid_sources = [source for source in requested_sources if source not in enabled_sources]
+
+        if invalid_sources:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"지원하지 않는 트렌드 소스입니다: {', '.join(invalid_sources)}"
+            )
+
+        source_collectors = {
+            "youtube": lambda: service.collect_youtube_trends(
+                db=db,
+                region_code=request.region_code,
+                category_id=request.category_id,
+            ),
+            "youtube_shorts": lambda: service.collect_youtube_shorts_trends(
+                db=db,
+                region_code=request.region_code,
+                category_id=request.category_id,
+            ),
+            "tiktok": lambda: service.collect_tiktok_trends(
+                db=db,
+                region_code=request.region_code,
+            ),
+        }
+
+        collected_trends: List[TrendResponse] = []
+        errors: list[str] = []
+
+        for source in requested_sources:
+            try:
+                trends = await source_collectors[source]()
+                collected_trends.extend(trends)
+            except Exception as exc:
+                errors.append(f"{source}: {str(exc)}")
+
+        if not collected_trends:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"트렌드를 수집할 수 없습니다. YouTube API 키를 확인하세요. (지역: {request.region_code})"
+                detail="트렌드를 수집할 수 없습니다. " + "; ".join(errors)
             )
-        
-        return trends
+
+        return collected_trends
     
     except HTTPException:
         raise

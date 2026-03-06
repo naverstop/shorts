@@ -399,16 +399,27 @@ class TrendResponse(BaseModel):
         from_attributes = True
 
 
+class TrendSourceResponse(BaseModel):
+    """트렌드 수집/필터 소스 메타데이터"""
+    code: str
+    label: str
+    icon: str
+    description: str
+    enabled: bool = True
+    supports_collection: bool = True
+
+
 class TrendCollectRequest(BaseModel):
     """트렌드 수집 요청"""
     region_code: str = Field(default="KR", description="지역 코드")
     category_id: Optional[str] = Field(None, description="카테고리 ID")
+    sources: List[str] = Field(default_factory=lambda: ["youtube", "youtube_shorts", "tiktok"], description="수집할 소스 목록")
 
 
 class TrendSearchRequest(BaseModel):
     """트렌드 검색 요청"""
     query: str = Field(..., description="검색 쿼리")
-    source: Optional[str] = Field(None, description="소스 필터 (youtube, tiktok)")
+    source: Optional[str] = Field(None, description="소스 필터 (youtube, youtube_shorts, tiktok)")
 
 
 # ==================== Script Schemas ====================

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchTrends, collectTrends, type TrendItem } from '../services/api'
+import { fetchTrends, fetchTrendSources, collectTrends, type TrendItem, type TrendSourceItem } from '../services/api'
 import './SectionStyles.css'
 
 type MessageType = { type: 'success' | 'error'; text: string }
@@ -37,11 +37,13 @@ export default function TrendsSection({ token, username }: Props) {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<MessageType | null>(null)
   const [trends, setTrends] = useState<TrendItem[]>([])
+  const [trendSources, setTrendSources] = useState<TrendSourceItem[]>([])
   const [collecting, setCollecting] = useState(false)
 
   // 필터
   const [filterSource, setFilterSource] = useState<string>('all')
   const [regionCode, setRegionCode] = useState<string>('KR')
+  const [selectedSources, setSelectedSources] = useState<string[]>([])
 
   useEffect(() => {
     void loadData()
@@ -57,13 +59,26 @@ export default function TrendsSection({ token, username }: Props) {
   const loadData = async () => {
     try {
       setLoading(true)
-      const trendsData = await fetchTrends(token)
+      const [trendsData, sourcesData] = await Promise.all([
+        fetchTrends(token),
+        fetchTrendSources(token),
+      ])
       setTrends(trendsData)
+      setTrendSources(sourcesData.filter((source) => source.enabled))
+      setSelectedSources((prev) => prev.length > 0 ? prev : sourcesData.filter((source) => source.enabled && source.supports_collection).map((source) => source.code))
     } catch (err) {
       setMessage({ type: 'error', text: (err as Error).message })
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleSelectedSource = (sourceCode: string) => {
+    setSelectedSources((prev) =>
+      prev.includes(sourceCode)
+        ? prev.filter((code) => code !== sourceCode)
+        : [...prev, sourceCode]
+    )
   }
 
   const handleCollectTrends = async () => {
@@ -72,14 +87,23 @@ export default function TrendsSection({ token, username }: Props) {
       return
     }
 
+    if (selectedSources.length === 0) {
+      setMessage({ type: 'error', text: '수집할 플랫폼을 1개 이상 선택해주세요.' })
+      return
+    }
+
     const regionName = REGION_CODES.find(r => r.code === regionCode)?.name || regionCode
-    if (!confirm(`${regionName} 지역의 트렌드를 수집하시겠습니까? (백그라운드 작업, 30초-1분 소요)`)) {
+    const sourceNames = trendSources
+      .filter((source) => selectedSources.includes(source.code))
+      .map((source) => `${source.icon} ${source.label}`)
+      .join(', ')
+    if (!confirm(`${regionName} 지역의 트렌드를 수집하시겠습니까?\n대상: ${sourceNames}\n(백그라운드 작업, 30초-1분 소요)`)) {
       return
     }
 
     try {
       setCollecting(true)
-      await collectTrends(token, regionCode)
+      await collectTrends(token, regionCode, selectedSources)
       setMessage({ type: 'success', text: '✅ 트렌드 수집이 완료되었습니다!' })
       
       // 자동 새로고침 (3초 후)
@@ -101,10 +125,8 @@ export default function TrendsSection({ token, username }: Props) {
   })
 
   const getSourceLabel = (source: string) => {
-    if (source === 'youtube') return '📺 YouTube'
-    if (source === 'youtube_shorts') return '🎬 YouTube Shorts'
-    if (source === 'tiktok') return '🎵 TikTok'
-    return source
+    const found = trendSources.find((item) => item.code === source)
+    return found ? `${found.icon} ${found.label}` : source
   }
 
   if (loading) {
@@ -136,6 +158,7 @@ export default function TrendsSection({ token, username }: Props) {
           <div className="form-group">
             <label>지역 코드 *</label>
             <select
+              title="지역 코드 선택"
               value={regionCode}
               onChange={(e) => setRegionCode(e.target.value)}
               style={{
@@ -154,6 +177,22 @@ export default function TrendsSection({ token, username }: Props) {
               ))}
             </select>
             <small>YouTube 트렌딩 영상을 수집할 국가/지역을 선택하세요</small>
+          </div>
+          <div className="form-group">
+            <label>수집 플랫폼 *</label>
+            <div>
+              {trendSources.filter((source) => source.supports_collection).map((source) => (
+                <label key={source.code} className="checkbox-label" style={{ marginBottom: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSources.includes(source.code)}
+                    onChange={() => toggleSelectedSource(source.code)}
+                  />
+                  <span>{source.icon} {source.label}</span>
+                </label>
+              ))}
+            </div>
+            <small>체크된 플랫폼을 한 번에 수집합니다</small>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
@@ -185,14 +224,12 @@ export default function TrendsSection({ token, username }: Props) {
           <div className="stat-label">전체 트렌드</div>
           <div className="stat-value">{trends.length}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">YouTube</div>
-          <div className="stat-value">{trends.filter((t) => t.source === 'youtube').length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">TikTok</div>
-          <div className="stat-value">{trends.filter((t) => t.source === 'tiktok').length}</div>
-        </div>
+        {trendSources.map((source) => (
+          <div className="stat-card" key={source.code}>
+            <div className="stat-label">{source.icon} {source.label}</div>
+            <div className="stat-value">{trends.filter((t) => t.source === source.code).length}</div>
+          </div>
+        ))}
         <div className="stat-card">
           <div className="stat-label">평균 트렌드 점수</div>
           <div className="stat-value">
@@ -213,18 +250,15 @@ export default function TrendsSection({ token, username }: Props) {
           >
             전체
           </button>
-          <button
-            className={`btn ${filterSource === 'youtube' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setFilterSource('youtube')}
-          >
-            📺 YouTube
-          </button>
-          <button
-            className={`btn ${filterSource === 'tiktok' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setFilterSource('tiktok')}
-          >
-            🎵 TikTok
-          </button>
+          {trendSources.map((source) => (
+            <button
+              key={source.code}
+              className={`btn ${filterSource === source.code ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setFilterSource(source.code)}
+            >
+              {source.icon} {source.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -296,9 +330,10 @@ export default function TrendsSection({ token, username }: Props) {
       <div className="content-card" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
         <h3>💡 사용 가이드</h3>
         <ul style={{ lineHeight: '1.8' }}>
-          <li><strong>트렌드 수집:</strong> Celery Worker가 백그라운드에서 YouTube/TikTok API를 호출합니다.</li>
+          <li><strong>트렌드 수집:</strong> 선택한 플랫폼별로 YouTube, YouTube Shorts, TikTok 트렌드를 수집합니다.</li>
           <li><strong>지역 코드:</strong> KR(한국), US(미국), JP(일본) 등 ISO 2자리 코드를 사용합니다.</li>
           <li><strong>트렌드 점수:</strong> 80+ (매우 높음), 50-79 (높음), 50 미만 (보통)</li>
+          <li><strong>YouTube Shorts:</strong> 현재는 YouTube 인기 영상 중 60초 이하 영상을 Shorts 후보로 분류합니다.</li>
           <li><strong>스크립트 생성:</strong> 높은 점수의 키워드를 "스크립트" 메뉴에서 활용할 수 있습니다.</li>
         </ul>
       </div>

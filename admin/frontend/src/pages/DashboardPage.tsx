@@ -485,7 +485,7 @@ function DashboardPage({ username, token, onLogout }: DashboardPageProps) {
     setTrendMessage(null)
     setTrendLoading(true)
     try {
-      await collectTrends(token, trendRegion.trim() || 'KR')
+      await collectTrends(token, trendRegion.trim() || 'KR', ['youtube', 'youtube_shorts', 'tiktok'])
       setTrendMessage('트렌드 수집 완료')
       await loadDashboard()
     } catch (error) {

@@ -167,6 +167,15 @@ export type TrendItem = {
   created_at: string
 }
 
+export type TrendSourceItem = {
+  code: string
+  label: string
+  icon: string
+  description: string
+  enabled: boolean
+  supports_collection: boolean
+}
+
 export type ScriptItem = {
   id: number
   user_id: number
@@ -507,7 +516,7 @@ export async function completeYoutubeOAuth(code: string, state: string, platform
 }
 
 export async function fetchTrends(token: string): Promise<TrendItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/trends?limit=10`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/trends?limit=30`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -520,14 +529,28 @@ export async function fetchTrends(token: string): Promise<TrendItem[]> {
   return response.json() as Promise<TrendItem[]>
 }
 
-export async function collectTrends(token: string, regionCode: string): Promise<void> {
+export async function fetchTrendSources(token: string): Promise<TrendSourceItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/trends/sources`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('트렌드 소스 조회에 실패했습니다.')
+  }
+
+  return response.json() as Promise<TrendSourceItem[]>
+}
+
+export async function collectTrends(token: string, regionCode: string, sources: string[]): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/trends/collect`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ region_code: regionCode }),
+    body: JSON.stringify({ region_code: regionCode, sources }),
   })
 
   if (!response.ok) {
