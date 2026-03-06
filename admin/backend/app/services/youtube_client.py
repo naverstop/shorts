@@ -50,10 +50,12 @@ class YouTubeClient:
             List of video data
         """
         if not self.youtube:
-            logger.error("YouTube API not initialized")
-            return []
+            error_msg = "YouTube API가 초기화되지 않았습니다. YOUTUBE_API_KEY 환경 변수를 확인하세요."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         try:
+            logger.info(f"📊 Fetching trending videos for region: {region_code}")
             request = self.youtube.videos().list(
                 part="snippet,statistics,contentDetails",
                 chart="mostPopular",
@@ -84,11 +86,19 @@ class YouTubeClient:
             return videos
             
         except HttpError as e:
-            logger.error(f"❌ YouTube API error: {e}")
-            return []
+            error_detail = str(e)
+            if "quotaExceeded" in error_detail:
+                logger.error("❌ YouTube API 할당량 초과")
+                raise ValueError("YouTube API 할당량이 초과되었습니다. 내일 다시 시도하세요.")
+            elif "keyInvalid" in error_detail:
+                logger.error("❌ YouTube API 키가 유효하지 않습니다")
+                raise ValueError("YouTube API 키가 유효하지 않습니다. 환경 변수를 확인하세요.")
+            else:
+                logger.error(f"❌ YouTube API error: {e}")
+                raise ValueError(f"YouTube API 오류: {error_detail}")
         except Exception as e:
             logger.error(f"❌ Failed to fetch trending videos: {e}")
-            return []
+            raise ValueError(f"트렌딩 비디오 조회 실패: {str(e)}")
     
     async def search_videos(
         self,

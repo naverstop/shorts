@@ -26,20 +26,29 @@ async def collect_trends(
     - YouTube에서 현재 트렌드 수집
     - Gemini AI로 분석
     """
-    service = TrendService()
-    trends = await service.collect_youtube_trends(
-        db=db,
-        region_code=request.region_code,
-        category_id=request.category_id
-    )
+    try:
+        service = TrendService()
+        trends = await service.collect_youtube_trends(
+            db=db,
+            region_code=request.region_code,
+            category_id=request.category_id
+        )
+        
+        if not trends:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"트렌드를 수집할 수 없습니다. YouTube API 키를 확인하세요. (지역: {request.region_code})"
+            )
+        
+        return trends
     
-    if not trends:
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to collect trends"
+            detail=f"트렌드 수집 중 오류 발생: {str(e)}"
         )
-    
-    return trends
 
 
 @router.get("", response_model=List[TrendResponse])

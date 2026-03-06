@@ -49,7 +49,7 @@ class TrendService:
             
             if not videos:
                 logger.warning("No trending videos found")
-                return []
+                raise ValueError(f"{region_code} 지역의 트렌딩 영상을 찾을 수 없습니다.")
             
             # Gemini로 트렌드 분석
             logger.info("🤖 Analyzing trends with Gemini")
@@ -57,7 +57,7 @@ class TrendService:
             
             if not analysis:
                 logger.warning("Trend analysis failed")
-                return []
+                raise ValueError("Gemini AI 트렌드 분석에 실패했습니다.")
             
             # Trend 저장
             trends = []
@@ -111,10 +111,15 @@ class TrendService:
             logger.info(f"✅ Collected {len(trends)} trends")
             return trends
             
+        except ValueError as ve:
+            # 명확한 오류 메시지를 가진 경우 그대로 전파
+            logger.error(f"❌ {str(ve)}")
+            await db.rollback()
+            raise
         except Exception as e:
             logger.error(f"❌ Failed to collect YouTube trends: {e}")
             await db.rollback()
-            return []
+            raise ValueError(f"트렌드 수집 중 오류 발생: {str(e)}")
     
     async def get_trending_keywords(
         self,

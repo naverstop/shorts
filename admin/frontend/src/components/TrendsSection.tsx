@@ -9,6 +9,30 @@ interface Props {
   username: string
 }
 
+// 주요 국가/지역 코드 목록
+const REGION_CODES = [
+  { code: 'KR', name: '🇰🇷 대한민국 (Korea)' },
+  { code: 'US', name: '🇺🇸 미국 (United States)' },
+  { code: 'JP', name: '🇯🇵 일본 (Japan)' },
+  { code: 'GB', name: '🇬🇧 영국 (United Kingdom)' },
+  { code: 'FR', name: '🇫🇷 프랑스 (France)' },
+  { code: 'DE', name: '🇩🇪 독일 (Germany)' },
+  { code: 'CA', name: '🇨🇦 캐나다 (Canada)' },
+  { code: 'AU', name: '🇦🇺 호주 (Australia)' },
+  { code: 'BR', name: '🇧🇷 브라질 (Brazil)' },
+  { code: 'IN', name: '🇮🇳 인도 (India)' },
+  { code: 'ID', name: '🇮🇩 인도네시아 (Indonesia)' },
+  { code: 'MX', name: '🇲🇽 멕시코 (Mexico)' },
+  { code: 'ES', name: '🇪🇸 스페인 (Spain)' },
+  { code: 'IT', name: '🇮🇹 이탈리아 (Italy)' },
+  { code: 'RU', name: '🇷🇺 러시아 (Russia)' },
+  { code: 'TH', name: '🇹🇭 태국 (Thailand)' },
+  { code: 'VN', name: '🇻🇳 베트남 (Vietnam)' },
+  { code: 'PH', name: '🇵🇭 필리핀 (Philippines)' },
+  { code: 'TW', name: '🇹🇼 대만 (Taiwan)' },
+  { code: 'HK', name: '🇭🇰 홍콩 (Hong Kong)' },
+]
+
 export default function TrendsSection({ token, username }: Props) {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<MessageType | null>(null)
@@ -44,20 +68,28 @@ export default function TrendsSection({ token, username }: Props) {
 
   const handleCollectTrends = async () => {
     if (!regionCode) {
-      setMessage({ type: 'error', text: '지역 코드를 입력해주세요.' })
+      setMessage({ type: 'error', text: '지역 코드를 선택해주세요.' })
       return
     }
 
-    if (!confirm(`${regionCode} 지역의 트렌드를 수집하시겠습니까? (백그라운드 작업, 30초-1분 소요)`)) {
+    const regionName = REGION_CODES.find(r => r.code === regionCode)?.name || regionCode
+    if (!confirm(`${regionName} 지역의 트렌드를 수집하시겠습니까? (백그라운드 작업, 30초-1분 소요)`)) {
       return
     }
 
     try {
       setCollecting(true)
       await collectTrends(token, regionCode)
-      setMessage({ type: 'success', text: '트렌드 수집 작업이 시작되었습니다. 잠시 후 새로고침하세요.' })
+      setMessage({ type: 'success', text: '✅ 트렌드 수집이 완료되었습니다!' })
+      
+      // 자동 새로고침 (3초 후)
+      setTimeout(() => {
+        void loadData()
+      }, 3000)
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message })
+      const errorMessage = (err as Error).message
+      setMessage({ type: 'error', text: `❌ 트렌드 수집 실패: ${errorMessage}` })
+      console.error('트렌드 수집 오류:', err)
     } finally {
       setCollecting(false)
     }
@@ -95,14 +127,26 @@ export default function TrendsSection({ token, username }: Props) {
         <h3>🔄 트렌드 수집</h3>
         <div className="form-grid">
           <div className="form-group">
-            <label>지역 코드</label>
-            <input
-              type="text"
-              placeholder="예: KR, US, JP"
+            <label>지역 코드 *</label>
+            <select
               value={regionCode}
-              onChange={(e) => setRegionCode(e.target.value.toUpperCase())}
-            />
-            <small>ISO 3166-1 alpha-2 코드 (2자리)</small>
+              onChange={(e) => setRegionCode(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                fontSize: '1rem',
+                borderRadius: '0.375rem',
+                border: '1px solid #ddd',
+                backgroundColor: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              {REGION_CODES.map((region) => (
+                <option key={region.code} value={region.code}>
+                  {region.name}
+                </option>
+              ))}
+            </select>
+            <small>YouTube 트렌딩 영상을 수집할 국가/지역을 선택하세요</small>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
