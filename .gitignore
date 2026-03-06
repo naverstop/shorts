@@ -1,0 +1,89 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Storage
+storage/
+!storage/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Credentials
+credentials/
+*.pem
+*.key
+test_token.txt
+
+# JSON (except specific ones)
+*.json
+!docker/*.json
+!package.json
+!tsconfig.json
+!.eslintrc.json
+!app.json
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.bak
+
+# Node (for frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Frontend build
+admin/frontend/dist/
+admin/frontend/build/
+
+# Package files
+package-lock.json
+yarn.lock

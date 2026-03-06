@@ -1,0 +1,44 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# React Native
+.expo/
+.expo-shared/
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/captures/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcodeproj
+
+# Metro
+.metro-health-check*
+
+# Testing
+coverage/
+
+# Misc
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
