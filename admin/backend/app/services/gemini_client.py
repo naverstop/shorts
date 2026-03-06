@@ -3,9 +3,14 @@ Gemini AI Client
 - 트렌드 분석
 - 콘텐츠 구조 분석
 """
-import os
+import json
+import re
+from collections import Counter
+
 from typing import Dict, List, Optional
 from loguru import logger
+
+from app.config import settings
 
 try:
     import google.generativeai as genai
@@ -24,13 +29,50 @@ class GeminiClient:
         if not GEMINI_AVAILABLE:
             raise ImportError("google-generativeai is required.")
         
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or settings.GEMINI_API_KEY
         if not self.api_key:
             logger.warning("GEMINI_API_KEY not found in environment")
             return
         
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
+
+    def _build_fallback_analysis(self, videos: List[Dict], reason: str = "AI 분석 불가") -> Dict:
+        """Gemini 사용 불가 시 YouTube 메타데이터 기반 폴백 분석"""
+        stopwords = {
+            "the", "and", "for", "with", "from", "that", "this", "you", "your",
+            "are", "was", "have", "has", "into", "out", "feat", "official",
+            "video", "music", "mv", "shorts", "쇼츠", "영상", "공식"
+        }
+
+        words: list[str] = []
+        for video in videos[:20]:
+            title = str(video.get("title", ""))
+            tags = video.get("tags", []) or []
+            tokens = re.findall(r"[A-Za-z0-9가-힣]{2,}", title)
+            tokens.extend(str(tag) for tag in tags[:5])
+            for token in tokens:
+                normalized = token.strip().lower()
+                if len(normalized) >= 2 and normalized not in stopwords:
+                    words.append(normalized)
+
+        keyword_counts = Counter(words)
+        keywords = [word for word, _ in keyword_counts.most_common(10)]
+        main_topics = keywords[:3]
+        avg_views = int(sum(v.get("view_count", 0) for v in videos[:10]) / max(len(videos[:10]), 1))
+        viral_potential = min(95, max(55, int(avg_views / 100000))) if videos else 55
+
+        return {
+            "summary": f"{reason}로 기본 분석 결과를 생성했습니다.",
+            "main_topics": main_topics,
+            "target_audience": ["YouTube 시청자", "쇼츠 소비층"],
+            "content_suggestions": [
+                f"{topic} 관련 쇼츠 제작" for topic in main_topics[:3]
+            ] or ["현재 인기 주제 기반 쇼츠 제작"],
+            "viral_potential": viral_potential,
+            "recommended_platforms": ["youtube", "tiktok"],
+            "keywords": keywords or ["trending", "youtube", "shorts"],
+        }
     
     async def analyze_trend(
         self,
@@ -84,10 +126,6 @@ class GeminiClient:
             
             response = self.model.generate_content(prompt)
             
-            # JSON 파싱 시도
-            import json
-            import re
-            
             text = response.text
             # JSON 코드 블록 추출
             json_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
@@ -104,18 +142,10 @@ class GeminiClient:
         except json.JSONDecodeError as e:
             logger.error(f"❌ Failed to parse Gemini response as JSON: {e}")
             logger.debug(f"Response text: {response.text}")
-            return {
-                "summary": "분석 실패",
-                "main_topics": [],
-                "target_audience": [],
-                "content_suggestions": [],
-                "viral_potential": 0,
-                "recommended_platforms": [],
-                "keywords": []
-            }
+            return self._build_fallback_analysis(videos, reason="Gemini JSON 파싱 실패")
         except Exception as e:
             logger.error(f"❌ Gemini API error: {e}")
-            return {}
+            return self._build_fallback_analysis(videos, reason="Gemini API 사용 불가")
     
     async def extract_keywords(
         self,

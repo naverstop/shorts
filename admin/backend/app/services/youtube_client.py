@@ -3,10 +3,11 @@ YouTube Data API Client
 - 트렌드 데이터 수집
 - 인기 영상 정보 조회
 """
-import os
 from typing import List, Dict, Optional
 from datetime import datetime
 from loguru import logger
+
+from app.config import settings
 
 try:
     from googleapiclient.discovery import build
@@ -26,7 +27,7 @@ class YouTubeClient:
         if not YOUTUBE_AVAILABLE:
             raise ImportError("google-api-python-client is required. pip install google-api-python-client")
         
-        self.api_key = api_key or os.getenv("YOUTUBE_API_KEY")
+        self.api_key = api_key or settings.YOUTUBE_API_KEY
         if not self.api_key:
             logger.warning("YOUTUBE_API_KEY not found in environment")
         

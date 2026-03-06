@@ -3,10 +3,11 @@ OpenAI Embedding Client
 - 텍스트 임베딩 생성
 - Vector 유사도 검색
 """
-import os
 from typing import List, Optional
 import numpy as np
 from loguru import logger
+
+from app.config import settings
 
 try:
     from openai import AsyncOpenAI
@@ -25,7 +26,7 @@ class EmbeddingClient:
         if not OPENAI_AVAILABLE:
             raise ImportError("openai is required.")
         
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key or settings.OPENAI_API_KEY
         if not self.api_key:
             logger.warning("OPENAI_API_KEY not found in environment")
             return

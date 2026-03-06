@@ -3,9 +3,10 @@ Claude AI Client
 - 바이럴 스크립트 생성
 - Hook-Body-CTA 구조 작성
 """
-import os
 from typing import Dict, Optional
 from loguru import logger
+
+from app.config import settings
 
 try:
     from anthropic import AsyncAnthropic
@@ -24,7 +25,7 @@ class ClaudeClient:
         if not ANTHROPIC_AVAILABLE:
             raise ImportError("anthropic is required.")
         
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.api_key = api_key or settings.ANTHROPIC_API_KEY
         if not self.api_key:
             logger.warning("ANTHROPIC_API_KEY not found in environment")
             return
