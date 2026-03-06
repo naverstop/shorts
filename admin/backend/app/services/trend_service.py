@@ -3,6 +3,8 @@ Trend Service
 - 트렌드 수집 및 분석
 - YouTube/TikTok 트렌드 통합
 """
+import re
+
 from typing import List, Dict, Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,39 @@ class TrendService:
     def __init__(self):
         self.youtube_client = YouTubeClient()
         self.gemini_client = GeminiClient()
+
+    def _normalize_keyword(self, value: str) -> str:
+        return re.sub(r"\s+", "", (value or "").strip().lower())
+
+    def _calculate_keyword_metrics(self, keyword: str, videos: List[Dict]) -> tuple[int, int]:
+        """키워드와 제목/태그가 매칭되는 영상들의 조회수 합계와 개수 계산"""
+        normalized_keyword = self._normalize_keyword(keyword)
+        matched_videos: List[Dict] = []
+
+        for video in videos:
+            haystacks = [
+                self._normalize_keyword(str(video.get("title", ""))),
+                self._normalize_keyword(str(video.get("description", ""))),
+            ]
+            haystacks.extend(
+                self._normalize_keyword(str(tag)) for tag in (video.get("tags", []) or [])
+            )
+
+            if any(normalized_keyword and normalized_keyword in haystack for haystack in haystacks):
+                matched_videos.append(video)
+
+        if matched_videos:
+            return (
+                sum(video.get("view_count", 0) for video in matched_videos),
+                len(matched_videos),
+            )
+
+        # 직접 매칭이 없으면 상위 10개 평균 조회수를 기준값으로 사용
+        top_videos = videos[:10]
+        average_views = int(
+            sum(video.get("view_count", 0) for video in top_videos) / max(len(top_videos), 1)
+        )
+        return average_views, 0
     
     async def collect_youtube_trends(
         self,
@@ -65,6 +100,8 @@ class TrendService:
             main_topics = analysis.get("main_topics", [])
             
             for keyword in keywords[:10]:  # 상위 10개 키워드만 저장
+                keyword_view_count, keyword_video_count = self._calculate_keyword_metrics(keyword, videos)
+
                 # 중복 체크
                 result = await db.execute(
                     select(Trend).where(
@@ -79,8 +116,18 @@ class TrendService:
                 
                 if existing_trend:
                     # 기존 트렌드 업데이트
+                    existing_trend.topic = main_topics[0] if main_topics else existing_trend.topic
+                    existing_trend.category = category_id or existing_trend.category or "general"
                     existing_trend.trend_score = analysis.get("viral_potential", 70)
+                    existing_trend.view_count = keyword_view_count
+                    existing_trend.video_count = keyword_video_count
+                    existing_trend.related_keywords = keywords[:10]
+                    existing_trend.suggested_tags = [f"#{k}" for k in keywords[:5]]
                     existing_trend.ai_analysis = analysis
+                    existing_trend.region = region_code
+                    existing_trend.language = "ko"
+                    existing_trend.collected_at = datetime.now(timezone.utc)
+                    existing_trend.expires_at = datetime.now(timezone.utc) + timedelta(days=14)
                     existing_trend.updated_at = datetime.now(timezone.utc)
                     trends.append(existing_trend)
                     logger.info(f"  📝 Updated existing trend: {keyword}")
@@ -92,8 +139,8 @@ class TrendService:
                         topic=main_topics[0] if main_topics else None,
                         category=category_id or "general",
                         trend_score=analysis.get("viral_potential", 70),
-                        view_count=sum(v.get("view_count", 0) for v in videos[:10]),
-                        video_count=len(videos),
+                        view_count=keyword_view_count,
+                        video_count=keyword_video_count,
                         growth_rate=0.0,
                         ai_analysis=analysis,
                         suggested_tags=[f"#{k}" for k in keywords[:5]],
@@ -151,7 +198,7 @@ class TrendService:
             if source:
                 query = query.where(Trend.source == source)
             
-            query = query.order_by(desc(Trend.trend_score)).limit(limit)
+            query = query.order_by(desc(Trend.collected_at), desc(Trend.trend_score)).limit(limit)
             
             result = await db.execute(query)
             trends = result.scalars().all()

@@ -238,8 +238,8 @@ export default function TrendsSection({ token, username }: Props) {
                   <th>주제</th>
                   <th>카테고리</th>
                   <th>트렌드 점수</th>
-                  <th>조회수</th>
-                  <th>영상 수</th>
+                  <th>연관 조회수</th>
+                  <th>연관 영상 수</th>
                   <th>성장률</th>
                   <th>언어</th>
                   <th>지역</th>
